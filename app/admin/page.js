@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from 'react';
 
+// Simple password protection
+const ADMIN_PASSWORD = 'rife2024'; // Change this to your preferred password
+
 export default function AdminPage() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [popups, setPopups] = useState({});
   const [selectedPopup, setSelectedPopup] = useState(null);
   const [embedCode, setEmbedCode] = useState('');
@@ -22,8 +28,87 @@ export default function AdminPage() {
   });
 
   useEffect(() => {
-    fetchPopups();
-  }, []);
+    if (isAuthenticated) {
+      fetchPopups();
+    } else {
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (password === ADMIN_PASSWORD) {
+      setIsAuthenticated(true);
+      setPasswordError('');
+    } else {
+      setPasswordError('Incorrect password');
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        fontFamily: 'system-ui, -apple-system, sans-serif'
+      }}>
+        <div style={{
+          background: 'white',
+          padding: '2rem',
+          borderRadius: '12px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+          width: '100%',
+          maxWidth: '400px'
+        }}>
+          <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', textAlign: 'center' }}>
+            GC Connector Admin
+          </h1>
+          <p style={{ color: '#666', textAlign: 'center', marginBottom: '1.5rem' }}>
+            Enter password to continue
+          </p>
+          <form onSubmit={handleLogin}>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                fontSize: '1rem',
+                border: '2px solid #e0e0e0',
+                borderRadius: '6px',
+                marginBottom: '1rem'
+              }}
+            />
+            {passwordError && (
+              <p style={{ color: '#e53e3e', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                {passwordError}
+              </p>
+            )}
+            <button
+              type="submit"
+              style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                background: '#667eea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                cursor: 'pointer'
+              }}
+            >
+              Login
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   const fetchPopups = async () => {
     try {
