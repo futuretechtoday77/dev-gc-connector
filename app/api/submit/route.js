@@ -20,6 +20,20 @@ const staticPopups = {
       image: { url: '', position: 'none' }
     },
     fields: ['firstName', 'email', 'phone']
+  },
+  'ForbiddenFood Nitrilosides': {
+    name: 'ForbiddenFood Nitrilosides Signup',
+    tagId: '690e80748ec2830ebfefdae0',  // Same consultation tag for now
+    design: {
+      variant: 'purple',
+      layout: 'centered',
+      headline: 'Get Instant Access',
+      subheadline: 'Enter your details below',
+      bodyCopy: '',
+      buttonText: 'Send My Login Info Now',
+      image: { url: '', position: 'none' }
+    },
+    fields: ['firstName', 'email']
   }
 };
 
