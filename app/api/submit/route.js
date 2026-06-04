@@ -131,26 +131,30 @@ export async function POST(req) {
 
     // Step 2: Fire the tag using Global Control API directly
     // This ensures the contact is tagged for the consultation workflow
+    let tagFired = false;
     if (popup.tagId) {
       try {
+        console.log('Firing tag:', popup.tagId, 'for email:', email);
         const tagResponse = await fetch(`https://api.globalcontrol.io/api/ai/tags/fire-tag/${popup.tagId}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-API-KEY': process.env.GLOBAL_CONTROL_API_KEY
+            'X-API-KEY': GC_API_KEY
           },
           body: JSON.stringify({ email })
         });
         
-        if (!tagResponse.ok) {
-          console.error('Tag firing failed:', await tagResponse.text());
-          // Don't fail the submission if tagging fails
+        const tagData = await tagResponse.json();
+        console.log('Tag fire response:', JSON.stringify(tagData).substring(0, 300));
+        
+        if (tagResponse.ok && tagData.type === 'response') {
+          console.log('✅ Tag fired successfully:', popup.tagId);
+          tagFired = true;
         } else {
-          console.log('Tag fired successfully:', popup.tagId);
+          console.error('❌ Tag firing failed:', tagData);
         }
       } catch (tagError) {
-        console.error('Tag firing error:', tagError);
-        // Don't fail the submission if tagging fails
+        console.error('❌ Tag firing error:', tagError);
       }
     }
 
@@ -158,7 +162,9 @@ export async function POST(req) {
       { 
         success: true, 
         message: 'Thank you for your submission!',
-        contactId: contactId
+        contactId: contactId,
+        tagFired: tagFired,
+        tagId: popup.tagId
       },
       { headers: mergeHeaders({
         'Access-Control-Allow-Origin': '*',
