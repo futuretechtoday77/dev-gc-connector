@@ -80,24 +80,14 @@ export async function POST(req) {
       );
     }
 
-    // Step 1: Submit to GlobalControl via gcmodal-api77 to create contact
-    const gcResponse = await fetch('https://gcmodal-api77.vercel.app/api/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        popupId: 'Template Test Rife1', // Use existing working popup
-        email,
-        firstName: firstName || '',
-        phone: phone || '',
-        notes: notes || `Consultation request from ${popupId} - Tag: ${popup.tagId}`
-      })
-    });
-
-    if (!gcResponse.ok) {
-      const errorText = await gcResponse.text();
-      console.error('GlobalControl error:', errorText);
+    // Step 1: Create contact directly via Global Control API
+    const GC_API_URL = 'https://api.globalcontrol.io/api/ai';
+    const GC_API_KEY = process.env.GLOBAL_CONTROL_API_KEY;
+    
+    if (!GC_API_KEY) {
+      console.error('Missing GLOBAL_CONTROL_API_KEY');
       return Response.json(
-        { success: false, error: 'Failed to submit to GlobalControl' },
+        { success: false, error: 'Server configuration error' },
         { status: 500, headers: mergeHeaders({
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -105,8 +95,39 @@ export async function POST(req) {
         }, getSecurityHeaders()) }
       );
     }
+    
+    console.log('Creating contact in Global Control...');
+    const gcResponse = await fetch(`${GC_API_URL}/contacts`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-API-KEY': GC_API_KEY
+      },
+      body: JSON.stringify({
+        email,
+        firstName: firstName || '',
+        phone: phone || '',
+        notes: notes || `Signup from ${popupId}`
+      })
+    });
 
-    const gcData = await gcResponse.json();
+    let contactId = null;
+    let gcData = null;
+    
+    if (gcResponse.ok) {
+      gcData = await gcResponse.json();
+      console.log('Global Control response:', JSON.stringify(gcData).substring(0, 200));
+      
+      // Extract contact ID from response
+      if (gcData.type === 'response' && gcData.data) {
+        contactId = gcData.data._id || gcData.data.id;
+        console.log('Contact created with ID:', contactId);
+      }
+    } else {
+      const errorText = await gcResponse.text();
+      console.error('GlobalControl contact creation failed:', errorText);
+      // Continue anyway - contact might already exist
+    }
 
     // Step 2: Fire the tag using Global Control API directly
     // This ensures the contact is tagged for the consultation workflow
@@ -137,7 +158,7 @@ export async function POST(req) {
       { 
         success: true, 
         message: 'Thank you for your submission!',
-        contactId: gcData.contactId || gcData.id
+        contactId: contactId
       },
       { headers: mergeHeaders({
         'Access-Control-Allow-Origin': '*',
