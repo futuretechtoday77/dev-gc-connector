@@ -488,6 +488,22 @@ export async function GET(req) {
         }
       },
       fields: ['email']
+    },
+
+    // ==================== RIFE CONSULTATION (tag: 690e80748ec2830ebfefdae0) ====================
+    'Consultation Rife1': {
+      name: 'Rife Consultation Request',
+      tagId: '690e80748ec2830ebfefdae0',
+      design: {
+        variant: 'teal',
+        layout: 'centered',
+        headline: 'Book Your Free Consultation',
+        subheadline: 'Enter your details and we will contact you to schedule your call',
+        bodyCopy: '',
+        buttonText: 'Book My Free Consultation',
+        image: { url: '', position: 'none' }
+      },
+      fields: ['firstName', 'email', 'phone']
     }
   };
 
