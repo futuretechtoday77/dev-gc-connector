@@ -7,6 +7,20 @@ import { getSecurityHeaders, mergeHeaders } from '@/lib/security-headers';
 
 // Import popup configs from the popups route
 const staticPopups = {
+  'Template Test Rife1': {
+    name: 'Rife Frequency Code - Main Optin',
+    tagId: '68cb4cbb97f1fa5d35ebf6f3',
+    design: {
+      variant: 'teal',
+      layout: 'centered',
+      headline: 'Watch The Free Training',
+      subheadline: 'Enter your details to get instant access',
+      bodyCopy: '',
+      buttonText: 'Send Me The Free Video',
+      image: { url: '', position: 'none' }
+    },
+    fields: ['firstName', 'email']
+  },
   'Consultation Rife1': {
     name: 'Rife Consultation Request',
     tagId: '690e80748ec2830ebfefdae0',
