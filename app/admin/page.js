@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 
 // Simple password protection
-const ADMIN_PASSWORD = 'K9mP2vL8nQ5xW4rT7jH3b'; // Secure 21-char password
+const ADMIN_PASSWORD = 'siKr10t1eX0QNJCFW8WS'; // Admin access password
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
