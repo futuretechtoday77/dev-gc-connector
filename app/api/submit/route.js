@@ -117,38 +117,33 @@ export async function POST(req) {
       }
     }
 
-    // Step 2: Fire the tag (if configured)
+    // Step 2: Fire the tag (if configured) - fire and forget for speed
     let tagFired = false;
     if (popup.tagId) {
-      try {
-        const tagResponse = await fetch(`https://api.globalcontrol.io/api/ai/tags/fire-tag/${popup.tagId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-KEY': GC_API_KEY
-          },
-          body: JSON.stringify({ email })
-        });
-        
-        if (tagResponse.ok) {
-          tagFired = true;
-          
-          // WORKAROUND: Global Control tag fire API clears the contact name
-          // Re-update the contact with the name after tag fire
-          if (fullName && contactId) {
-            fetch(`${GC_API_URL}/contacts/${contactId}`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-API-KEY': GC_API_KEY
-              },
-              body: JSON.stringify({ name: fullName })
-            }).catch(() => {}); // Fire and forget - don't wait
-          }
+      tagFired = true; // Optimistically assume it will work
+      
+      // Fire tag without awaiting response for speed
+      fetch(`https://api.globalcontrol.io/api/ai/tags/fire-tag/${popup.tagId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-KEY': GC_API_KEY
+        },
+        body: JSON.stringify({ email })
+      }).then(() => {
+        // WORKAROUND: Global Control tag fire API clears the contact name
+        // Re-update the contact with the name after tag fire
+        if (fullName && contactId) {
+          fetch(`${GC_API_URL}/contacts/${contactId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-KEY': GC_API_KEY
+            },
+            body: JSON.stringify({ name: fullName })
+          }).catch(() => {});
         }
-      } catch (e) {
-        // Ignore tag fire errors
-      }
+      }).catch(() => {});
     }
 
     return Response.json(
