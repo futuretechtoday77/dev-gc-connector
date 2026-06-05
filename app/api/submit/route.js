@@ -81,6 +81,7 @@ export async function POST(req) {
       body: JSON.stringify({
         email,
         name: fullName,
+        firstName: fullName,
         phone: phone || '',
         notes: notes || `Signup from ${popupId}`
       })
@@ -135,7 +136,7 @@ export async function POST(req) {
                 'Content-Type': 'application/json',
                 'X-API-KEY': GC_API_KEY
               },
-              body: JSON.stringify({ name: fullName })
+              body: JSON.stringify({ name: fullName, firstName: fullName })
             });
             console.log('Name update status:', updateRes.status);
             // Verify the update
