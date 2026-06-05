@@ -1,42 +1,37 @@
-/**
- * Form Submission Handler
- * Processes form submissions and sends to GlobalControl
- */
+import { headers } from 'next/headers';
 
-import { getSecurityHeaders, mergeHeaders } from '@/lib/security-headers';
+// CORS headers helper
+const getSecurityHeaders = () => ({
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+});
 
-// Import popup configs from the popups route
-const staticPopups = {
+const mergeHeaders = (additional = {}) => ({
+  ...getSecurityHeaders(),
+  ...additional
+});
+
+// Global Control API configuration
+const GC_API_URL = 'https://api.globalcontrol.io/api/ai';
+const GC_API_KEY = process.env.GLOBAL_CONTROL_API_KEY;
+
+// In-memory popup storage (populated from Control Board or defaults)
+const popupStore = {
   'Template Test Rife1': {
-    name: 'Rife Frequency Code - Main Optin',
     tagId: '68cb4cbb97f1fa5d35ebf6f3',
     design: {
       variant: 'teal',
       layout: 'centered',
-      headline: 'Watch The Free Training',
-      subheadline: 'Enter your details to get instant access',
+      headline: 'Get Instant Access',
+      subheadline: 'Enter your details below',
       bodyCopy: '',
-      buttonText: 'Send Me The Free Video',
+      buttonText: 'Send My Login Info Now',
       image: { url: '', position: 'none' }
     },
     fields: ['firstName', 'email']
   },
   'Consultation Rife1': {
-    name: 'Rife Consultation Request',
-    tagId: '690e80748ec2830ebfefdae0',
-    design: {
-      variant: 'teal',
-      layout: 'centered',
-      headline: 'Book Your Free Consultation',
-      subheadline: 'Enter your details and we will contact you to schedule your call',
-      bodyCopy: '',
-      buttonText: 'Book My Free Consultation',
-      image: { url: '', position: 'none' }
-    },
-    fields: ['firstName', 'email', 'phone']
-  },
-  'ForbiddenFood Nitrilosides': {
-    name: 'ForbiddenFood Nitrilosides Signup',
     tagId: '690e80748ec2830ebfefdae0',  // Same consultation tag for now
     design: {
       variant: 'purple',
@@ -62,54 +57,29 @@ export async function POST(req) {
         { status: 400, headers: mergeHeaders({
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type'
-        }, getSecurityHeaders()) }
+          'Access-Control-Allow-Headers': 'Content-Type',
+        }) }
       );
     }
 
-    // Get popup config
-    const popup = staticPopups[popupId];
+    // Get popup configuration
+    const popup = popupStore[popupId];
     if (!popup) {
       return Response.json(
-        { success: false, error: 'Invalid popup or popup not found' },
+        { success: false, error: `Popup not found: ${popupId}` },
         { status: 404, headers: mergeHeaders({
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type'
-        }, getSecurityHeaders()) }
+          'Access-Control-Allow-Headers': 'Content-Type',
+        }) }
       );
     }
 
-    // Step 1: Create contact directly via Global Control API
-    const GC_API_URL = 'https://api.globalcontrol.io/api/ai';
-    const GC_API_KEY = process.env.GLOBAL_CONTROL_API_KEY;
-    
-    if (!GC_API_KEY) {
-      console.error('Missing GLOBAL_CONTROL_API_KEY');
-      return Response.json(
-        { success: false, error: 'Server configuration error' },
-        { status: 500, headers: mergeHeaders({
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type'
-        }, getSecurityHeaders()) }
-      );
-    }
-    
-    console.log('Creating contact in Global Control...');
-    console.log('Received firstName:', firstName);
-    
     // Build name field from firstName
     const fullName = firstName ? firstName.trim() : '';
-    console.log('Full name to send:', fullName);
-    
-    const requestBody = JSON.stringify({
-      email,
-      name: fullName,
-      phone: phone || '',
-      notes: notes || `Signup from ${popupId}`
-    });
-    console.log('Request body:', requestBody);
+
+    // Step 1: Create or update contact in Global Control
+    let contactId = null;
     
     const gcResponse = await fetch(`${GC_API_URL}/contacts`, {
       method: 'POST',
@@ -117,26 +87,20 @@ export async function POST(req) {
         'Content-Type': 'application/json',
         'X-API-KEY': GC_API_KEY
       },
-      body: requestBody
+      body: JSON.stringify({
+        email,
+        name: fullName,
+        phone: phone || '',
+        notes: notes || `Signup from ${popupId}`
+      })
     });
-    
-    console.log('GC response status:', gcResponse.status);
 
-    let contactId = null;
-    let gcData = null;
-    
     if (gcResponse.ok) {
-      gcData = await gcResponse.json();
-      console.log('Global Control response:', JSON.stringify(gcData).substring(0, 200));
-      
-      // Extract contact ID from response
+      const gcData = await gcResponse.json();
       if (gcData.type === 'response' && gcData.data) {
         contactId = gcData.data._id || gcData.data.id;
-        console.log('Contact created with ID:', contactId);
       }
     } else {
-      const errorText = await gcResponse.text();
-      console.error('GlobalControl contact creation failed:', errorText);
       // Contact might already exist - try to get contact ID by email
       try {
         const searchResponse = await fetch(`${GC_API_URL}/contacts?search=${encodeURIComponent(email)}`, {
@@ -146,39 +110,17 @@ export async function POST(req) {
           const searchData = await searchResponse.json();
           if (searchData.type === 'response' && searchData.data && searchData.data.length > 0) {
             contactId = searchData.data[0]._id;
-            console.log('Found existing contact ID:', contactId);
           }
         }
-      } catch (searchError) {
-        console.error('Error searching for contact:', searchError);
-      }
-    }
-    
-    // If we have a contact ID and name, update the contact with the name
-    // This handles both new contacts and existing contacts
-    if (contactId && fullName) {
-      console.log('Updating contact with name...');
-      try {
-        await fetch(`${GC_API_URL}/contacts/${contactId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-KEY': GC_API_KEY
-          },
-          body: JSON.stringify({ name: fullName })
-        });
-        console.log('Contact name updated');
-      } catch (updateError) {
-        console.error('Error updating contact name:', updateError);
+      } catch (e) {
+        // Ignore search errors
       }
     }
 
-    // Step 2: Fire the tag using Global Control API directly
-    // This ensures the contact is tagged for the consultation workflow
+    // Step 2: Fire the tag (if configured)
     let tagFired = false;
     if (popup.tagId) {
       try {
-        console.log('Firing tag:', popup.tagId, 'for email:', email);
         const tagResponse = await fetch(`https://api.globalcontrol.io/api/ai/tags/fire-tag/${popup.tagId}`, {
           method: 'POST',
           headers: {
@@ -188,32 +130,24 @@ export async function POST(req) {
           body: JSON.stringify({ email })
         });
         
-        const tagData = await tagResponse.json();
-        console.log('Tag fire response:', JSON.stringify(tagData).substring(0, 300));
-        
-        if (tagResponse.ok && tagData.type === 'response') {
-          console.log('✅ Tag fired successfully:', popup.tagId);
+        if (tagResponse.ok) {
           tagFired = true;
           
           // WORKAROUND: Global Control tag fire API clears the contact name
-          // We need to re-update the contact with the name
+          // Re-update the contact with the name after tag fire
           if (fullName && contactId) {
-            console.log('Re-adding name to contact after tag fire...');
-            await fetch(`${GC_API_URL}/contacts/${contactId}`, {
+            fetch(`${GC_API_URL}/contacts/${contactId}`, {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
                 'X-API-KEY': GC_API_KEY
               },
               body: JSON.stringify({ name: fullName })
-            });
-            console.log('Name re-added successfully');
+            }).catch(() => {}); // Fire and forget - don't wait
           }
-        } else {
-          console.error('❌ Tag firing failed:', tagData);
         }
-      } catch (tagError) {
-        console.error('❌ Tag firing error:', tagError);
+      } catch (e) {
+        // Ignore tag fire errors
       }
     }
 
@@ -223,36 +157,23 @@ export async function POST(req) {
         message: 'Thank you for your submission!',
         contactId: contactId,
         tagFired: tagFired,
-        tagId: popup.tagId,
-        debug: { receivedFirstName: firstName, sentName: fullName }
+        tagId: popup.tagId
       },
-      { headers: mergeHeaders({
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      }, getSecurityHeaders()) }
+      { headers: mergeHeaders() }
     );
 
   } catch (error) {
     console.error('Submit error:', error);
     return Response.json(
       { success: false, error: 'Internal server error' },
-      { status: 500, headers: mergeHeaders({
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      }, getSecurityHeaders()) }
+      { status: 500, headers: mergeHeaders() }
     );
   }
 }
 
-export async function OPTIONS() {
+export async function OPTIONS(req) {
   return new Response(null, {
     status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
-    }
+    headers: mergeHeaders()
   });
 }
