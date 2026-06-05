@@ -127,6 +127,8 @@ export async function POST(req) {
           // Re-update the contact with the name after tag fire
           console.log('Re-adding name:', fullName, 'to contact:', contactId);
           if (fullName) {
+            // Wait for tag to be fully processed
+            await new Promise(r => setTimeout(r, 2000));
             const updateRes = await fetch(`${GC_API_URL}/contacts/${contactId}`, {
               method: 'PUT',
               headers: {
@@ -136,6 +138,12 @@ export async function POST(req) {
               body: JSON.stringify({ name: fullName })
             });
             console.log('Name update status:', updateRes.status);
+            // Verify the update
+            const verifyRes = await fetch(`${GC_API_URL}/contacts/${contactId}`, {
+              headers: { 'X-API-KEY': GC_API_KEY }
+            });
+            const verifyData = await verifyRes.json();
+            console.log('Verify name after update:', verifyData.data?.name);
           }
         }
       } catch (e) {}
