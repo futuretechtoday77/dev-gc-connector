@@ -122,37 +122,43 @@ export async function POST(req) {
       }
     }
 
-    // Step 2: Fire the tag (if configured) - fire and forget for speed
+    // Step 2: Fire the tag (if configured) - do it sync to ensure name is preserved
     let tagFired = false;
     if (popup.tagId && contactId) {
-      tagFired = true; // Optimistically assume it will work
-      
-      // Fire tag without awaiting response for speed
-      fetch(`https://api.globalcontrol.io/api/ai/tags/fire-tag/${popup.tagId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-KEY': GC_API_KEY
-        },
-        body: JSON.stringify({ email })
-      }).then(async () => {
-        // Wait a moment for the tag to be processed, then re-update the name
-        await new Promise(r => setTimeout(r, 500));
-        // WORKAROUND: Global Control tag fire API clears the contact name
-        if (fullName && contactId) {
-          await fetch(`${GC_API_URL}/contacts/${contactId}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-API-KEY': GC_API_KEY
-            },
-            body: JSON.stringify({ name: fullName })
-          });
-          console.log('DEBUG: Name re-added after tag fire');
+      try {
+        // Fire the tag
+        const tagResponse = await fetch(`https://api.globalcontrol.io/api/ai/tags/fire-tag/${popup.tagId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-KEY': GC_API_KEY
+          },
+          body: JSON.stringify({ email })
+        });
+        
+        if (tagResponse.ok) {
+          tagFired = true;
+          console.log('DEBUG: Tag fired, now re-adding name...');
+          
+          // WORKAROUND: Global Control tag fire API clears the contact name
+          // Re-update the contact with the name after tag fire
+          if (fullName) {
+            const updateResponse = await fetch(`${GC_API_URL}/contacts/${contactId}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-API-KEY': GC_API_KEY
+              },
+              body: JSON.stringify({ name: fullName })
+            });
+            console.log('DEBUG: Name update response status:', updateResponse.status);
+          }
         }
-      }).catch(() => {});
+      } catch (e) {
+        console.log('DEBUG: Tag fire error:', e.message);
+      }
     } else if (popup.tagId && !contactId) {
-      console.log('DEBUG: No contactId, cannot fire tag with name preservation');
+      console.log('DEBUG: No contactId, cannot fire tag');
     }
 
     return Response.json(
