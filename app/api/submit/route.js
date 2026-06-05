@@ -67,6 +67,7 @@ export async function POST(req) {
     }
 
     const fullName = firstName ? firstName.trim() : '';
+    console.log('API received:', { popupId, email, firstName, fullName });
 
     // Step 1: Create contact in Global Control
     let contactId = null;
@@ -124,8 +125,9 @@ export async function POST(req) {
           
           // WORKAROUND: Global Control tag fire API clears the contact name
           // Re-update the contact with the name after tag fire
+          console.log('Re-adding name:', fullName, 'to contact:', contactId);
           if (fullName) {
-            await fetch(`${GC_API_URL}/contacts/${contactId}`, {
+            const updateRes = await fetch(`${GC_API_URL}/contacts/${contactId}`, {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
@@ -133,6 +135,7 @@ export async function POST(req) {
               },
               body: JSON.stringify({ name: fullName })
             });
+            console.log('Name update status:', updateRes.status);
           }
         }
       } catch (e) {}
