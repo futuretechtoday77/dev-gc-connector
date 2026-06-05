@@ -109,7 +109,6 @@ export async function POST(req) {
       },
       body: JSON.stringify({
         email,
-        firstName: firstName || '',
         name: fullName,
         phone: phone || '',
         notes: notes || `Signup from ${popupId}`
