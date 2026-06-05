@@ -137,7 +137,40 @@ export async function POST(req) {
     } else {
       const errorText = await gcResponse.text();
       console.error('GlobalControl contact creation failed:', errorText);
-      // Continue anyway - contact might already exist
+      // Contact might already exist - try to get contact ID by email
+      try {
+        const searchResponse = await fetch(`${GC_API_URL}/contacts?search=${encodeURIComponent(email)}`, {
+          headers: { 'X-API-KEY': GC_API_KEY }
+        });
+        if (searchResponse.ok) {
+          const searchData = await searchResponse.json();
+          if (searchData.type === 'response' && searchData.data && searchData.data.length > 0) {
+            contactId = searchData.data[0]._id;
+            console.log('Found existing contact ID:', contactId);
+          }
+        }
+      } catch (searchError) {
+        console.error('Error searching for contact:', searchError);
+      }
+    }
+    
+    // If we have a contact ID and name, update the contact with the name
+    // This handles both new contacts and existing contacts
+    if (contactId && fullName) {
+      console.log('Updating contact with name...');
+      try {
+        await fetch(`${GC_API_URL}/contacts/${contactId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-KEY': GC_API_KEY
+          },
+          body: JSON.stringify({ name: fullName })
+        });
+        console.log('Contact name updated');
+      } catch (updateError) {
+        console.error('Error updating contact name:', updateError);
+      }
     }
 
     // Step 2: Fire the tag using Global Control API directly
@@ -172,9 +205,7 @@ export async function POST(req) {
                 'Content-Type': 'application/json',
                 'X-API-KEY': GC_API_KEY
               },
-              body: JSON.stringify({
-                name: fullName
-              })
+              body: JSON.stringify({ name: fullName })
             });
             console.log('Name re-added successfully');
           }
