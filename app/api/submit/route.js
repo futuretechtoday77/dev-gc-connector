@@ -161,6 +161,23 @@ export async function POST(req) {
         if (tagResponse.ok && tagData.type === 'response') {
           console.log('✅ Tag fired successfully:', popup.tagId);
           tagFired = true;
+          
+          // WORKAROUND: Global Control tag fire API clears the contact name
+          // We need to re-update the contact with the name
+          if (fullName && contactId) {
+            console.log('Re-adding name to contact after tag fire...');
+            await fetch(`${GC_API_URL}/contacts/${contactId}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-API-KEY': GC_API_KEY
+              },
+              body: JSON.stringify({
+                name: fullName
+              })
+            });
+            console.log('Name re-added successfully');
+          }
         } else {
           console.error('❌ Tag firing failed:', tagData);
         }
