@@ -97,9 +97,11 @@ export async function POST(req) {
     }
     
     console.log('Creating contact in Global Control...');
+    console.log('Received firstName:', firstName);
     
     // Build name field from firstName
     const fullName = firstName ? firstName.trim() : '';
+    console.log('Full name to send:', fullName);
     
     const gcResponse = await fetch(`${GC_API_URL}/contacts`, {
       method: 'POST',
