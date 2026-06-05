@@ -77,9 +77,18 @@ export async function POST(req) {
 
     // Build name field from firstName
     const fullName = firstName ? firstName.trim() : '';
+    console.log('DEBUG: received firstName:', firstName, '| fullName:', fullName);
 
     // Step 1: Create or update contact in Global Control
     let contactId = null;
+    
+    const requestBody = JSON.stringify({
+      email,
+      name: fullName,
+      phone: phone || '',
+      notes: notes || `Signup from ${popupId}`
+    });
+    console.log('DEBUG: request body:', requestBody);
     
     const gcResponse = await fetch(`${GC_API_URL}/contacts`, {
       method: 'POST',
@@ -87,16 +96,12 @@ export async function POST(req) {
         'Content-Type': 'application/json',
         'X-API-KEY': GC_API_KEY
       },
-      body: JSON.stringify({
-        email,
-        name: fullName,
-        phone: phone || '',
-        notes: notes || `Signup from ${popupId}`
-      })
+      body: requestBody
     });
 
     if (gcResponse.ok) {
       const gcData = await gcResponse.json();
+      console.log('DEBUG: GC response:', JSON.stringify(gcData.data || {}).substring(0, 200));
       if (gcData.type === 'response' && gcData.data) {
         contactId = gcData.data._id || gcData.data.id;
       }
