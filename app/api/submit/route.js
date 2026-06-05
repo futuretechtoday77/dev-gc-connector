@@ -103,19 +103,24 @@ export async function POST(req) {
     const fullName = firstName ? firstName.trim() : '';
     console.log('Full name to send:', fullName);
     
+    const requestBody = JSON.stringify({
+      email,
+      name: fullName,
+      phone: phone || '',
+      notes: notes || `Signup from ${popupId}`
+    });
+    console.log('Request body:', requestBody);
+    
     const gcResponse = await fetch(`${GC_API_URL}/contacts`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
         'X-API-KEY': GC_API_KEY
       },
-      body: JSON.stringify({
-        email,
-        name: fullName,
-        phone: phone || '',
-        notes: notes || `Signup from ${popupId}`
-      })
+      body: requestBody
     });
+    
+    console.log('GC response status:', gcResponse.status);
 
     let contactId = null;
     let gcData = null;
