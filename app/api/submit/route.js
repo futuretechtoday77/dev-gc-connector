@@ -124,7 +124,7 @@ export async function POST(req) {
 
     // Step 2: Fire the tag (if configured) - fire and forget for speed
     let tagFired = false;
-    if (popup.tagId) {
+    if (popup.tagId && contactId) {
       tagFired = true; // Optimistically assume it will work
       
       // Fire tag without awaiting response for speed
@@ -135,20 +135,24 @@ export async function POST(req) {
           'X-API-KEY': GC_API_KEY
         },
         body: JSON.stringify({ email })
-      }).then(() => {
+      }).then(async () => {
+        // Wait a moment for the tag to be processed, then re-update the name
+        await new Promise(r => setTimeout(r, 500));
         // WORKAROUND: Global Control tag fire API clears the contact name
-        // Re-update the contact with the name after tag fire
         if (fullName && contactId) {
-          fetch(`${GC_API_URL}/contacts/${contactId}`, {
+          await fetch(`${GC_API_URL}/contacts/${contactId}`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
               'X-API-KEY': GC_API_KEY
             },
             body: JSON.stringify({ name: fullName })
-          }).catch(() => {});
+          });
+          console.log('DEBUG: Name re-added after tag fire');
         }
       }).catch(() => {});
+    } else if (popup.tagId && !contactId) {
+      console.log('DEBUG: No contactId, cannot fire tag with name preservation');
     }
 
     return Response.json(
