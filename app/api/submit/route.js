@@ -170,7 +170,8 @@ export async function POST(req) {
         message: 'Thank you for your submission!',
         contactId: contactId,
         tagFired: tagFired,
-        tagId: popup.tagId
+        tagId: popup.tagId,
+        debug: { receivedFirstName: firstName, sentName: fullName }
       },
       { headers: mergeHeaders({
         'Access-Control-Allow-Origin': '*',
