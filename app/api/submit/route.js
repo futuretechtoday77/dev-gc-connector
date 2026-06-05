@@ -16,7 +16,7 @@ const mergeHeaders = (additional = {}) => ({
 const GC_API_URL = 'https://api.globalcontrol.io/api/ai';
 const GC_API_KEY = process.env.GLOBAL_CONTROL_API_KEY;
 
-// In-memory popup storage (populated from Control Board or defaults)
+// In-memory popup storage
 const popupStore = {
   'Template Test Rife1': {
     tagId: '68cb4cbb97f1fa5d35ebf6f3',
@@ -32,7 +32,7 @@ const popupStore = {
     fields: ['firstName', 'email']
   },
   'Consultation Rife1': {
-    tagId: '690e80748ec2830ebfefdae0',  // Same consultation tag for now
+    tagId: '690e80748ec2830ebfefdae0',
     design: {
       variant: 'purple',
       layout: 'centered',
@@ -54,41 +54,22 @@ export async function POST(req) {
     if (!popupId || !email) {
       return Response.json(
         { success: false, error: 'Missing required fields: popupId and email' },
-        { status: 400, headers: mergeHeaders({
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        }) }
+        { status: 400, headers: mergeHeaders() }
       );
     }
 
-    // Get popup configuration
     const popup = popupStore[popupId];
     if (!popup) {
       return Response.json(
         { success: false, error: `Popup not found: ${popupId}` },
-        { status: 404, headers: mergeHeaders({
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        }) }
+        { status: 404, headers: mergeHeaders() }
       );
     }
 
-    // Build name field from firstName
     const fullName = firstName ? firstName.trim() : '';
-    console.log('DEBUG: received firstName:', firstName, '| fullName:', fullName);
 
-    // Step 1: Create or update contact in Global Control
+    // Step 1: Create contact in Global Control
     let contactId = null;
-    
-    const requestBody = JSON.stringify({
-      email,
-      name: fullName,
-      phone: phone || '',
-      notes: notes || `Signup from ${popupId}`
-    });
-    console.log('DEBUG: request body:', requestBody);
     
     const gcResponse = await fetch(`${GC_API_URL}/contacts`, {
       method: 'POST',
@@ -96,17 +77,21 @@ export async function POST(req) {
         'Content-Type': 'application/json',
         'X-API-KEY': GC_API_KEY
       },
-      body: requestBody
+      body: JSON.stringify({
+        email,
+        name: fullName,
+        phone: phone || '',
+        notes: notes || `Signup from ${popupId}`
+      })
     });
 
     if (gcResponse.ok) {
       const gcData = await gcResponse.json();
-      console.log('DEBUG: GC response:', JSON.stringify(gcData.data || {}).substring(0, 200));
       if (gcData.type === 'response' && gcData.data) {
         contactId = gcData.data._id || gcData.data.id;
       }
     } else {
-      // Contact might already exist - try to get contact ID by email
+      // Contact might already exist - try to get contact ID
       try {
         const searchResponse = await fetch(`${GC_API_URL}/contacts?search=${encodeURIComponent(email)}`, {
           headers: { 'X-API-KEY': GC_API_KEY }
@@ -117,12 +102,10 @@ export async function POST(req) {
             contactId = searchData.data[0]._id;
           }
         }
-      } catch (e) {
-        // Ignore search errors
-      }
+      } catch (e) {}
     }
 
-    // Step 2: Fire the tag (if configured) - do it sync to ensure name is preserved
+    // Step 2: Fire the tag and re-add name (sync to ensure it completes)
     let tagFired = false;
     if (popup.tagId && contactId) {
       try {
@@ -138,12 +121,11 @@ export async function POST(req) {
         
         if (tagResponse.ok) {
           tagFired = true;
-          console.log('DEBUG: Tag fired, now re-adding name...');
           
           // WORKAROUND: Global Control tag fire API clears the contact name
           // Re-update the contact with the name after tag fire
           if (fullName) {
-            const updateResponse = await fetch(`${GC_API_URL}/contacts/${contactId}`, {
+            await fetch(`${GC_API_URL}/contacts/${contactId}`, {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
@@ -151,14 +133,9 @@ export async function POST(req) {
               },
               body: JSON.stringify({ name: fullName })
             });
-            console.log('DEBUG: Name update response status:', updateResponse.status);
           }
         }
-      } catch (e) {
-        console.log('DEBUG: Tag fire error:', e.message);
-      }
-    } else if (popup.tagId && !contactId) {
-      console.log('DEBUG: No contactId, cannot fire tag');
+      } catch (e) {}
     }
 
     return Response.json(
